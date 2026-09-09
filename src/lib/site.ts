@@ -9,13 +9,26 @@ const FALLBACK_URL = "https://www.standardbuild.com";
 /**
  * Canonical origin, no trailing slash.
  *
- * Set NEXT_PUBLIC_SITE_URL in the environment. On Vercel preview deployments we
- * fall back to VERCEL_URL so canonicals and OG images still resolve.
+ * Resolution order:
+ *  1. NEXT_PUBLIC_SITE_URL — the real domain, once there is one. Always wins.
+ *  2. VERCEL_PROJECT_PRODUCTION_URL — the project's stable production domain.
+ *     VERCEL_URL is deliberately not used first: it is unique per deployment,
+ *     so canonicals and OG URLs would point at a throwaway host and change with
+ *     every release.
+ *  3. VERCEL_URL — correct for preview deployments, where the per-deployment
+ *     host is exactly what should resolve.
+ *  4. A placeholder, so local builds still produce absolute URLs.
+ *
+ * Only ever read on the server (metadata, sitemap, robots, JSON-LD), so the
+ * non-public variables are safe to use here.
  */
 export const siteUrl = (() => {
   const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
   if (configured) return configured.replace(/\/+$/, "");
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+
+  const vercelHost = process.env.VERCEL_PROJECT_PRODUCTION_URL ?? process.env.VERCEL_URL;
+  if (vercelHost) return `https://${vercelHost}`;
+
   return FALLBACK_URL;
 })();
 
